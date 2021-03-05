@@ -425,7 +425,7 @@ A terminal reverse node begins unwinding the stack, passing return values upward
 
     Reverse nodes resolve in reverse order, where _B_ resolves before _A_, because A may depend on B.
 1. A forward node with forward control may initiate reverse control to a reverse node via its South or North walls.
-    i. Reverse control is indicated by an _Out Arrow_ from the North or South wall of the forward node.
+    1. Reverse control is indicated by an _Out Arrow_ from the North or South wall of the forward node.
     
         ```
         ┌────────────────┐
@@ -436,8 +436,8 @@ A terminal reverse node begins unwinding the stack, passing return values upward
                     ──►│ Forward Node ├─►
                        └──────────────┘
         ```
-    i. Forward control pasues while reverse control is executing.
-    i. Forward control is resumed once reverse control terminates.
+    1. Forward control pasues while reverse control is executing.
+    1. Forward control is resumed once reverse control terminates.
 1. Nodes recieve reverse control from the east, and pass reverse control to the west.
 1. Nodes _return_ control in addition to a _value_.
 1. If a node has multiple arrows along the west wall, only the node which originally passed reverse control recieves the value.
