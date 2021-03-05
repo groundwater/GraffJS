@@ -438,8 +438,8 @@ A terminal reverse node begins unwinding the stack, passing return values upward
         ```
     1. Forward control pasues while reverse control is executing.
     1. Forward control is resumed once reverse control terminates.
-1. Nodes recieve reverse control from the east, and pass reverse control to the west.
-1. Nodes _return_ control in addition to a _value_.
+1. Reverse Nodes recieve reverse control from the east, and pass reverse control to the west.
+1. Reverse Nodes _return_ control in addition to a _value_.
 1. If a node has multiple arrows along the west wall, only the node which originally passed reverse control recieves the value.
 
     ```
