@@ -411,7 +411,7 @@ The program proceeds in discrete steps, completing the previous step before the 
 
 ### Reverse Nodes
 
-Reverse control mixed functional programming concepts into an imperative workflow.
+Reverse control mixes functional programming into an imperative workflow.
 Each node in a reverse graph adds to a program stack.
 A terminal reverse node begins unwinding the stack, passing return values upward.
 
