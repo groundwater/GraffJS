@@ -144,7 +144,7 @@ export class Nodes {
         yield compiler.WrapStatement(`var $start = module`)
         yield compiler.WrapStatement(`var $exit`)
         for (let [index, node] of enumerate(this.nodes)) {
-            yield* node.DeclareNode(compiler, index)
+            yield* node.WriteDeclareNode(compiler, index)
         }
         yield compiler.WrapStatement(`var $fc = ${this.start}`)
         yield compiler.WrapLine(`steps: while(true) {`)
@@ -166,42 +166,6 @@ export class Nodes {
         public nodes: Node[],
         public start: number = 0,
     ) { }
-}
-export class ForwardArrow {
-    constructor(
-        protected tail_node_index: number,
-        protected head_node_index: number,
-        protected head_slot_index: number = 0,
-        protected tail_slot_index: number = -1,
-    ) {
-        assert(head_node_index > -1)
-    }
-    HeadNode() {
-        return this.head_node_index
-    }
-    HeadSlot() {
-        return this.head_slot_index
-    }
-    Dest(): [number, number] {
-        return [this.head_node_index, this.head_slot_index]
-    }
-    Source(): [number, number] {
-        return [this.tail_node_index, this.tail_slot_index]
-    }
-}
-export class ReverseArrow {
-    constructor(
-        public tail_node_index: number,
-        public head_node_index: number,
-        public tail_slot_index: number = 0,
-        public head_slot_index: number = -1,
-    ) { }
-    Source(): [number, number] {
-        return [this.tail_node_index, this.tail_slot_index]
-    }
-    Dest(): [number, number] {
-        return [this.head_node_index, this.head_slot_index]
-    }
 }
 export abstract class Input {
     abstract WriteDeclare(compiler: Compiler, local: number, slot: number): Generator<string>
@@ -235,12 +199,6 @@ export class ReverseNonControlInput extends NonControlInput {
     }
 }
 export class ControlInput extends Input {
-    constructor(
-        protected slot: number = 0,
-    ) { super() }
-    Slot(): number {
-        return this.slot
-    }
     *WriteDeclare() { }
     *Write(compiler: Compiler, local: number, slot: number) {
         yield compiler.WrapStatement(`${compiler.Var(local, slot)} = ${compiler.Var(local)}_in`)
@@ -248,13 +206,8 @@ export class ControlInput extends Input {
 }
 export class Output {
     constructor(
-        // protected fwd_arrow: ForwardArrow,
         protected dest_node: number,
-        // protected dest_slot: number = fwd_arrow.Dest()[1],
     ) { }
-    // GetArrow(): ForwardArrow {
-    //     return this.fwd_arrow
-    // }
     *WriteSetForwardControl(compiler: Compiler) {
         yield compiler.WrapStatement(`$fc = ${this.dest_node}`)
     }
@@ -262,16 +215,8 @@ export class Output {
         yield compiler.WrapStatement(`${compiler.Var(this.dest_node)}_in = ${source_var}`)
     }
 }
-export class ReverseOutput {
-    constructor(
-        protected rev_arrow: ReverseArrow,
-    ) { }
-    GetArrow(): ReverseArrow {
-        return this.rev_arrow
-    }
-}
 export abstract class Node {
-    abstract DeclareNode(compiler: Compiler, index: number): IterableIterator<string>
+    abstract WriteDeclareNode(compiler: Compiler, index: number): IterableIterator<string>
     abstract WriteNode(compiler: Compiler, index: number): IterableIterator<string>
 }
 export class ForwardNode extends Node {
@@ -306,7 +251,7 @@ export class ForwardNode extends Node {
         }
         yield compiler.WrapStatement(`}`)
     }
-    * DeclareNode(compiler: Compiler, index: number) {
+    * WriteDeclareNode(compiler: Compiler, index: number) {
         assert(index > -1)
         let name = compiler.Var(index)
         yield compiler.WrapStatement(`var ${name}`)
@@ -322,7 +267,7 @@ export class ReverseNode extends Node {
         protected inputs: Input[] = [],
     ) { super() }
     *WriteNode(): IterableIterator<string> { }
-    *DeclareNode(compiler: Compiler, index: number): IterableIterator<string> {
+    *WriteDeclareNode(compiler: Compiler, index: number): IterableIterator<string> {
         let name = compiler.Var(index)
         yield compiler.WrapLine(`function ${compiler.Fun(index)}() {`)
         for (let bodyCompiler of compiler.Indented()) {
@@ -367,7 +312,7 @@ let jsdoc = new Document(
             new InfixOperatorBody('*'),
             [
                 new ReferenceNonControlInput(0),
-                new ControlInput(1),
+                new ControlInput(),
             ],
             new Output(4)
         ),
