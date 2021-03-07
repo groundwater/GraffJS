@@ -89,21 +89,35 @@ export class InfixOperatorBody extends NodeBody {
         yield compiler.WrapStatement(`${prefix} = (${prefix}_0 ${this.infix} ${prefix}_1)`)
     }
 }
-// export class UnitaryOperatorBody extends NodeBody {
-//     *scriptify(prefix: string) {
-//         throw new Error("Method not implemented.")
-//     }
-// }
-// export class MethodBody extends NodeBody {
-//     *scriptify(prefix: string) {
-//         throw new Error("Method not implemented.")
-//     }
-// }
-// export class FunctionBody extends NodeBody {
-//     *scriptify(prefix: string) {
-//         throw new Error("Method not implemented.")
-//     }
-// }
+export class PrefixyOperatorBody extends NodeBody {
+    constructor(
+        public prefix: string
+    ) { super() }
+    *Write(compiler: Compiler, prefix: string) {
+        yield compiler.WrapStatement(`${prefix} = (${this.prefix}${prefix}_0)`)
+    }
+}
+export class PostfixOperatorBody extends NodeBody {
+    constructor(
+        public postfix: string
+    ) { super() }
+    *Write(compiler: Compiler, prefix: string) {
+        yield compiler.WrapStatement(`${prefix} = (${prefix}_0${this.postfix})`)
+    }
+}
+export class CallableBody extends NodeBody {
+    constructor(
+        public body: string,
+        public argsN: number = 0,
+    ) { super() }
+    *Write(compiler: Compiler, prefix: string) {
+        let args = []
+        for (let i = 0; i < this.argsN; i++) {
+            args.push(`${prefix}_${i}`)
+        }
+        yield compiler.WrapStatement(`${prefix} = (${this.body}(${args.join(', ')}))`)
+    }
+}
 export class LiteralBody extends NodeBody {
     constructor(
         public value: any
@@ -241,9 +255,6 @@ export abstract class Node {
     constructor(
         protected index: number,
     ) { }
-    Name(): string {
-        return `$n${this.index}`
-    }
     abstract DeclareNode(compiler: Compiler): IterableIterator<string>
     abstract ImplementNode(compiler: Compiler, nodes: Nodes): IterableIterator<string>
 }
@@ -274,7 +285,7 @@ export class ForwardNode extends Node {
         }
     }
     *ImplementNode(compiler: Compiler, nodes: Nodes): IterableIterator<string> {
-        let name = this.Name()
+        let name = compiler.Var(this.index)
         yield compiler.WrapLine(`case ${this.index}: {`)
         for (let caseCompiler of compiler.Indented()) {
             // References
@@ -299,7 +310,7 @@ export class ForwardNode extends Node {
     }
     * DeclareNode(compiler: Compiler) {
         assert(this.index > -1)
-        let name = this.Name()
+        let name = compiler.Var(this.index)
         yield compiler.WrapStatement(`var ${name}`)
         for (let nci of this.non_control_inputs) {
             yield* nci.WriteDeclare(compiler)
@@ -315,7 +326,7 @@ export class ReverseNode extends Node {
     ) { super(index) }
     *ImplementNode(): IterableIterator<string> { }
     *DeclareNode(compiler: Compiler): IterableIterator<string> {
-        let name = this.Name()
+        let name = compiler.Var(this.index)
         yield compiler.WrapLine(`function ${compiler.Fun(this.index)}() {`)
         for (let bodyCompiler of compiler.Indented()) {
             yield bodyCompiler.WrapStatement(`var ${name}`)
@@ -364,6 +375,14 @@ let jsdoc = new Document(
             [
                 new ControlInput(new ForwardArrow(1, 3)),
                 new ReferenceNonControlInput(new ReverseArrow(3, 0, 1))
+            ],
+            new Output(new ForwardArrow(3, 4))
+        ),
+        new ForwardNode(
+            4,
+            new PrefixyOperatorBody('-'),
+            [
+                new ControlInput(new ForwardArrow(3, 4))
             ]
         )
     ])
