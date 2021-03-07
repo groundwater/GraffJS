@@ -1,5 +1,4 @@
 import assert from 'assert'
-import { realpath } from 'node:fs'
 
 export class CompilerOptions {
     constructor(
@@ -42,6 +41,16 @@ export class Compiler {
             return compiler.WrapStatement(statemetn)
         }
         throw new Error('Unexpected')
+    }
+    Var(index: number, slot: number = -1) {
+        if (slot > -1) {
+            return `$n${index}_${slot}`
+        } else {
+            return `$n${index}`
+        }
+    }
+    Fun(index: number, _slot_ignored?: number) {
+        return `f$${index}`
     }
 }
 export class Document {
@@ -140,27 +149,17 @@ export class ForwardArrow {
     ) {
         assert(head_node_index > -1)
     }
-    TailNode() {
-        return `$n${this.tail_node_index}`
-    }
-    HeadSlot() {
-        return `${this.HeadNode()}_${this.head_slot_index}`
-    }
     HeadNode() {
-        return `$n${this.head_node_index}`
-    }
-    TailSlot() {
-        if (this.tail_slot_index > -1) {
-            return `${this.TailNode}_${this.tail_slot_index}`
-        } else {
-            return this.TailNode()
-        }
-    }
-    HeadIndex() {
         return this.head_node_index
     }
-    HeadSlotIndex() {
+    HeadSlot() {
         return this.head_slot_index
+    }
+    Dest(): [number, number] {
+        return [this.head_node_index, this.head_slot_index]
+    }
+    Source(): [number, number] {
+        return [this.tail_node_index, this.tail_slot_index]
     }
 }
 export class ReverseArrow {
@@ -170,24 +169,11 @@ export class ReverseArrow {
         public tail_slot_index: number = 0,
         public head_slot_index: number = -1,
     ) { }
-    TailNode() {
-        return `$n${this.tail_node_index}`
+    Source(): [number, number] {
+        return [this.tail_node_index, this.tail_slot_index]
     }
-    TailSlot() {
-        return `${this.TailNode()}_${this.tail_slot_index}`
-    }
-    HeadNode() {
-        return `$n${this.head_node_index}`
-    }
-    HeadSlot() {
-        if (this.head_slot_index > -1) {
-            return `${this.HeadNode}_${this.tail_slot_index}`
-        } else {
-            return this.HeadNode()
-        }
-    }
-    TailIndex() {
-        return this.tail_slot_index
+    Dest(): [number, number] {
+        return [this.head_node_index, this.head_slot_index]
     }
 }
 export abstract class Input {
@@ -211,12 +197,12 @@ export abstract class NonControlInput extends Input {
 }
 export class ReferenceNonControlInput extends NonControlInput {
     *Write(compiler: Compiler) {
-        yield compiler.WrapStatement(`${this.rev_arrow.TailSlot()} = ${this.rev_arrow.HeadSlot()}`)
+        yield compiler.WrapStatement(`${compiler.Var(...this.rev_arrow.Source())} = ${compiler.Var(...this.rev_arrow.Dest())}`)
     }
 }
 export class ReverseNonControlInput extends NonControlInput {
     *Write(compiler: Compiler) {
-        yield compiler.WrapStatement(`${this.rev_arrow.TailSlot()} = f${this.rev_arrow.HeadNode()}()`)
+        yield compiler.WrapStatement(`${compiler.Var(...this.rev_arrow.Source())} = ${compiler.Fun(...this.rev_arrow.Dest())}()`)
     }
 }
 export class ControlInput extends Input {
@@ -224,12 +210,10 @@ export class ControlInput extends Input {
         protected fwd_arrow: ForwardArrow,
     ) { super() }
     Slot(): number {
-        return this.fwd_arrow.HeadSlotIndex()
+        return this.fwd_arrow.HeadSlot()
     }
     *WriteDeclare() { }
-    *Write(compiler: Compiler) {
-        // yield compiler.WrapStatement(`/* Input on ${this.fwd_arrow.HeadSlot()} */`)
-    }
+    *Write(compiler: Compiler) { }
 }
 export class Output {
     constructor(
@@ -238,11 +222,11 @@ export class Output {
     GetArrow(): ForwardArrow {
         return this.fwd_arrow
     }
-    WriteSetForwardControl() {
-        return `$fc = ${this.fwd_arrow.HeadIndex()}`
+    *WriteSetForwardControl(compiler: Compiler) {
+        yield compiler.WrapStatement(`$fc = ${this.fwd_arrow.HeadNode()}`)
     }
-    WriteCopyValue(): string {
-        return `${this.fwd_arrow.HeadSlot()} = ${this.fwd_arrow.TailSlot()}`
+    *WriteCopyValue(compiler: Compiler) {
+        yield compiler.WrapStatement(`${compiler.Var(...this.fwd_arrow.Dest())} = ${compiler.Var(...this.fwd_arrow.Source())}`)
     }
 }
 export class ReverseOutput {
@@ -286,6 +270,7 @@ export class ForwardNode extends Node {
         let j = 0
         for (let i of slots) {
             assert(i === j++, `Missing Input Slot ${j - 1}`)
+
         }
     }
     *ImplementNode(compiler: Compiler, nodes: Nodes): IterableIterator<string> {
@@ -302,8 +287,8 @@ export class ForwardNode extends Node {
 
             // Output
             if (this.output) {
-                yield caseCompiler.WrapStatement(this.output.WriteSetForwardControl())
-                yield caseCompiler.WrapStatement(this.output.WriteCopyValue())
+                yield* this.output.WriteSetForwardControl(caseCompiler)
+                yield* this.output.WriteCopyValue(caseCompiler)
             } else {
                 yield caseCompiler.WrapStatement(`$fc = -1`)
                 yield caseCompiler.WrapStatement(`$exit = ${name}`)
@@ -331,7 +316,7 @@ export class ReverseNode extends Node {
     *ImplementNode(): IterableIterator<string> { }
     *DeclareNode(compiler: Compiler): IterableIterator<string> {
         let name = this.Name()
-        yield compiler.WrapLine(`function f${name}() {`)
+        yield compiler.WrapLine(`function ${compiler.Fun(this.index)}() {`)
         for (let bodyCompiler of compiler.Indented()) {
             yield bodyCompiler.WrapStatement(`var ${name}`)
             for (let ncis of this.inputs) {
