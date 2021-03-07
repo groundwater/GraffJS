@@ -1,6 +1,5 @@
 import * as vm from 'vm';
 import { Compiler, CompilerOptions } from "../compiler/Compiler";
-import { timestwo_src } from '../compiler/examples/timestwo';
 import { IRDocument } from "../compiler/ir/IRDocument";
 
 export class ScriptVM {
@@ -29,9 +28,3 @@ export function DocumentToJSFunction(document: IRDocument) {
     return run.eval();
 }
 
-if (!module.parent) {
-    let opt = new CompilerOptions();
-    let comp = new Compiler(opt);
-    let src = timestwo_src.ToJavaScript(comp);
-    console.log(src)
-}

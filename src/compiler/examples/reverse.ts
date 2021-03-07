@@ -1,6 +1,6 @@
 import { IRDocument } from '../ir/IRDocument';
 import { IRHeader } from '../ir/IRHeader';
-import { IRNodes } from "../IRNodes";
+import { IRNodes } from "../ir/IRNodes";
 import { IRForwardNode } from "../ir/IRForwardNode";
 import { IRControlInput } from "../ir/inputs/IRControlInput";
 import { IRExpressionBody } from "../ir/bodies/IRExpressionBody";

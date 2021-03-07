@@ -1,6 +1,6 @@
-import { Compiler } from './Compiler';
-import { enumerate } from './util';
-import { IRNode } from './ir/IRNode';
+import { Compiler } from '../Compiler';
+import { enumerate } from '../../util';
+import { IRNode } from './IRNode';
 
 export class IRNodes {
     *Write(compiler: Compiler): IterableIterator<string> {

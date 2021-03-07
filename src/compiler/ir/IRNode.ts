@@ -1,4 +1,4 @@
-import { Compiler } from '../Compiler';
+import { Compiler } from "../Compiler";
 
 export abstract class IRNode {
     abstract WriteDeclareNode(compiler: Compiler, index: number): IterableIterator<string>;

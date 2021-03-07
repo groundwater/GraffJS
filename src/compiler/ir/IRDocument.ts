@@ -1,4 +1,4 @@
-import { Compiler } from '../Compiler';
+import { Compiler, CompilerOptions } from '../Compiler';
 import { IRNodes } from "./IRNodes";
 import { IRHeader } from "./IRHeader";
 
@@ -11,7 +11,7 @@ export class IRDocument {
         yield this.header.script + '\n';
         yield* this.nodes.Write(compiler);
     }
-    ToJavaScript(compiler: Compiler) {
+    ToJavaScript(compiler: Compiler = new Compiler(new CompilerOptions)) {
         return Array.from(this.Write(compiler)).join('')
     }
     ToJavaScriptHeaderAndBody(compiler: Compiler) {

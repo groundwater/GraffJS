@@ -1,5 +1,5 @@
 import { Compiler } from '../Compiler';
-import { enumerate } from '../util';
+import { enumerate } from '../../util';
 import { IRNodeBody } from './bodies/IRNodeBody';
 import { IRInput } from './inputs/IRInput';
 import { IRNode } from './IRNode';
