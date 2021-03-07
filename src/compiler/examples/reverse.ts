@@ -1,25 +1,25 @@
-import { GraffDocument } from '../GraffDocument';
-import { JSHeader } from '../JSHeader';
-import { GraffNodes } from "../GraffNodes";
-import { ForwardNode } from "../nodes/ForwardNode";
-import { ControlInput } from "../nodes/inputs/ControlInput";
-import { ExpressionBody } from "../nodes/bodies/ExpressionBody";
-import { ReverseNonControlInput } from '../nodes/inputs/ReverseNonControlInput';
-import { ReverseNode } from '../nodes/ReverseNode';
-import { LiteralBody } from '../nodes/bodies/LiteralBody';
+import { IRDocument } from '../ir/IRDocument';
+import { IRHeader } from '../ir/IRHeader';
+import { IRNodes } from "../IRNodes";
+import { IRForwardNode } from "../ir/IRForwardNode";
+import { IRControlInput } from "../ir/inputs/IRControlInput";
+import { IRExpressionBody } from "../ir/bodies/IRExpressionBody";
+import { IRReverseNonControlInput } from '../ir/inputs/IRReverseNonControlInput';
+import { IRReverseNode } from '../ir/IRReverseNode';
+import { IRLiteralBody } from '../ir/bodies/IRLiteralBody';
 
-export const reverse_src = new GraffDocument(
-    new JSHeader('"use-strict"'),
-    new GraffNodes([
-        new ForwardNode(
-            new ExpressionBody('$0 * $1'),
+export const reverse_src = new IRDocument(
+    new IRHeader('"use-strict"'),
+    new IRNodes([
+        new IRForwardNode(
+            new IRExpressionBody('$0 * $1'),
             [
-                new ControlInput(),
-                new ReverseNonControlInput(1)
+                new IRControlInput(),
+                new IRReverseNonControlInput(1)
             ]
         ),
-        new ReverseNode(
-            new LiteralBody(-1)
+        new IRReverseNode(
+            new IRLiteralBody(-1)
         )
     ])
 );

@@ -1,7 +1,7 @@
 import { Compiler } from '../../Compiler';
-import { NonControlInput } from './NonControlInput';
+import { IRNonControlInput } from './IRNonControlInput';
 
-export class ReverseNonControlInput extends NonControlInput {
+export class IRReverseNonControlInput extends IRNonControlInput {
     constructor(
         protected node_index: number
     ) { super(); }

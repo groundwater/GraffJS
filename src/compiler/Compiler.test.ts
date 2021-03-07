@@ -1,10 +1,10 @@
-import { ReverseNode } from "./nodes/ReverseNode"
-import { Output } from "./nodes/Output"
-import { ReverseNonControlInput } from "./nodes/inputs/ReverseNonControlInput"
-import { ReferenceNonControlInput } from "./nodes/inputs/ReferenceNonControlInput"
-import { LiteralBody } from "./nodes/bodies/LiteralBody"
-import { PrefixyOperatorBody } from "./nodes/bodies/PrefixyOperatorBody"
-import { InfixOperatorBody } from "./nodes/bodies/InfixOperatorBody"
+import { IRReverseNode } from "./ir/IRReverseNode"
+import { IROutput } from "./ir/IROutput"
+import { IRReverseNonControlInput } from "./ir/inputs/IRReverseNonControlInput"
+import { IRReferenceNonControlInput } from "./ir/inputs/IRReferenceNonControlInput"
+import { IRLiteralBody } from "./ir/bodies/IRLiteralBody"
+import { IRPrefixyOperatorBody } from "./ir/bodies/IRPrefixyOperatorBody"
+import { IRInfixOperatorBody } from "./ir/bodies/IRInfixOperatorBody"
 
 import { test } from 'tap'
 

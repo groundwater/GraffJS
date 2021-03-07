@@ -1,7 +1,7 @@
 import { Compiler } from '../../Compiler';
-import { Input } from './Input';
+import { IRInput } from './IRInput';
 
-export abstract class NonControlInput extends Input {
+export abstract class IRNonControlInput extends IRInput {
     *WriteDeclare(compiler: Compiler, local: number, slot: number): Generator<string> {
         yield compiler.WrapStatement(`var ${compiler.Var(local, slot)}`);
     }

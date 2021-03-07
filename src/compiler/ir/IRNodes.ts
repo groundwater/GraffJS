@@ -1,8 +1,8 @@
 import { Compiler } from './Compiler';
 import { enumerate } from './util';
-import { Node } from './nodes/Node';
+import { IRNode } from './ir/IRNode';
 
-export class GraffNodes {
+export class IRNodes {
     *Write(compiler: Compiler): IterableIterator<string> {
         yield compiler.WrapStatement(`var $exit`);
         for (let [index, node] of enumerate(this.nodes)) {
@@ -26,7 +26,7 @@ export class GraffNodes {
         yield compiler.WrapLine(`}`);
     }
     constructor(
-        public nodes: Node[],
+        public nodes: IRNode[],
         public start: number = 0
     ) { }
 }

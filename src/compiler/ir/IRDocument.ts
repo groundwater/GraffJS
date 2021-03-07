@@ -1,12 +1,11 @@
-import { Compiler } from './Compiler';
-import { GraffNodes } from "./GraffNodes";
-import { JSHeader } from "./JSHeader";
+import { Compiler } from '../Compiler';
+import { IRNodes } from "./IRNodes";
+import { IRHeader } from "./IRHeader";
 
-
-export class GraffDocument {
+export class IRDocument {
     constructor(
-        public header: JSHeader,
-        public nodes: GraffNodes
+        public header: IRHeader,
+        public nodes: IRNodes
     ) { }
     *Write(compiler: Compiler): IterableIterator<string> {
         yield this.header.script + '\n';

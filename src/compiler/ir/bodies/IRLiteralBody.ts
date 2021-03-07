@@ -1,7 +1,7 @@
 import { Compiler } from '../../Compiler';
-import { NodeBody } from './NodeBody';
+import { IRNodeBody } from './IRNodeBody';
 
-export class LiteralBody extends NodeBody {
+export class IRLiteralBody extends IRNodeBody {
     constructor(
         public value: any
     ) { super(); }

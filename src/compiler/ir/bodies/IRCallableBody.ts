@@ -1,7 +1,7 @@
 import { Compiler } from '../../Compiler';
-import { NodeBody } from './NodeBody';
+import { IRNodeBody } from './IRNodeBody';
 
-export class CallableBody extends NodeBody {
+export class IRCallableBody extends IRNodeBody {
     constructor(
         public body: string,
         public argsN: number = 0

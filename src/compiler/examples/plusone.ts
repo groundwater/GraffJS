@@ -1,17 +1,17 @@
-import { GraffDocument } from '../GraffDocument';
-import { JSHeader } from '../JSHeader';
-import { GraffNodes } from "../GraffNodes";
-import { ForwardNode } from "../nodes/ForwardNode";
-import { ControlInput } from "../nodes/inputs/ControlInput";
-import { ExpressionBody } from "../nodes/bodies/ExpressionBody";
+import { IRDocument } from '../ir/IRDocument';
+import { IRHeader } from '../ir/IRHeader';
+import { IRNodes } from "../IRNodes";
+import { IRForwardNode } from "../ir/IRForwardNode";
+import { IRControlInput } from "../ir/inputs/IRControlInput";
+import { IRExpressionBody } from "../ir/bodies/IRExpressionBody";
 
-export const plusone_src = new GraffDocument(
-    new JSHeader('"use-strict"'),
-    new GraffNodes([
-        new ForwardNode(
-            new ExpressionBody('$0 + 1'),
+export const plusone_src = new IRDocument(
+    new IRHeader('"use-strict"'),
+    new IRNodes([
+        new IRForwardNode(
+            new IRExpressionBody('$0 + 1'),
             [
-                new ControlInput()
+                new IRControlInput()
             ]
         ),
     ])

@@ -1,7 +1,7 @@
 import { Compiler } from '../../Compiler';
-import { Input } from './Input';
+import { IRInput } from './IRInput';
 
-export class ControlInput extends Input {
+export class IRControlInput extends IRInput {
     *WriteDeclare(compiler: Compiler, local: number, slot: number) {
         yield compiler.WrapStatement(`var ${compiler.Var(local, slot)}`);
     }

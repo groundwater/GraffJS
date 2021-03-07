@@ -1,7 +1,7 @@
 import { Compiler } from '../../Compiler';
-import { NodeBody } from './NodeBody';
+import { IRNodeBody } from './IRNodeBody';
 
-export class InfixOperatorBody extends NodeBody {
+export class IRInfixOperatorBody extends IRNodeBody {
     constructor(
         public infix: string
     ) { super(); }

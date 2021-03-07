@@ -1,16 +1,16 @@
 import assert from 'assert';
 import { Compiler } from '../Compiler';
 import { enumerate } from '../util';
-import { NodeBody } from './bodies/NodeBody';
-import { Input } from './inputs/Input';
-import { Output } from './Output';
-import { Node } from './Node';
+import { IRNodeBody } from './bodies/IRNodeBody';
+import { IRInput } from './inputs/IRInput';
+import { IROutput } from './IROutput';
+import { IRNode } from './IRNode';
 
-export class ForwardNode extends Node {
+export class IRForwardNode extends IRNode {
     constructor(
-        protected body: NodeBody,
-        protected non_control_inputs: Input[],
-        protected output?: Output
+        protected body: IRNodeBody,
+        protected non_control_inputs: IRInput[],
+        protected output?: IROutput
     ) {
         super();
     }

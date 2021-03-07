@@ -1,6 +1,7 @@
 import * as vm from 'vm';
 import { Compiler, CompilerOptions } from "../compiler/Compiler";
-import { GraffDocument } from "../compiler/GraffDocument";
+import { timestwo_src } from '../compiler/examples/timestwo';
+import { IRDocument } from "../compiler/ir/IRDocument";
 
 export class ScriptVM {
     constructor(
@@ -20,10 +21,17 @@ export class ScriptVM {
         return out;
     }
 }
-export function DocumentToJSFunction(document: GraffDocument) {
+export function DocumentToJSFunction(document: IRDocument) {
     let opt = new CompilerOptions();
     let comp = new Compiler(opt);
     let src = document.ToJavaScript(comp);
     let run = new ScriptVM(src);
     return run.eval();
+}
+
+if (!module.parent) {
+    let opt = new CompilerOptions();
+    let comp = new Compiler(opt);
+    let src = timestwo_src.ToJavaScript(comp);
+    console.log(src)
 }

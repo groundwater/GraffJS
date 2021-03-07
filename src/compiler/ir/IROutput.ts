@@ -1,6 +1,6 @@
 import { Compiler } from '../Compiler';
 
-export class Output {
+export class IROutput {
     constructor(
         protected dest_node: number
     ) { }

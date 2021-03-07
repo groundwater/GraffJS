@@ -1,7 +1,7 @@
 import { Compiler } from '../../Compiler';
-import { NodeBody } from './NodeBody';
+import { IRNodeBody } from './IRNodeBody';
 
-export class PrefixyOperatorBody extends NodeBody {
+export class IRPrefixyOperatorBody extends IRNodeBody {
     constructor(
         public prefix: string
     ) { super(); }

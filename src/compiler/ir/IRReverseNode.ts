@@ -1,13 +1,13 @@
 import { Compiler } from '../Compiler';
 import { enumerate } from '../util';
-import { NodeBody } from './bodies/NodeBody';
-import { Input } from './inputs/Input';
-import { Node } from './Node';
+import { IRNodeBody } from './bodies/IRNodeBody';
+import { IRInput } from './inputs/IRInput';
+import { IRNode } from './IRNode';
 
-export class ReverseNode extends Node {
+export class IRReverseNode extends IRNode {
     constructor(
-        protected body: NodeBody,
-        protected inputs: Input[] = []
+        protected body: IRNodeBody,
+        protected inputs: IRInput[] = []
     ) { super(); }
     *WriteNode(): IterableIterator<string> { }
     *WriteDeclareNode(compiler: Compiler, index: number): IterableIterator<string> {

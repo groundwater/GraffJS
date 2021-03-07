@@ -1,6 +1,6 @@
 import * as vm from 'vm';
 import { Compiler, CompilerOptions } from "../compiler/Compiler";
-import { GraffDocument } from "../compiler/GraffDocument";
+import { IRDocument } from "../compiler/ir/IRDocument";
 
 const SourceTextModule = (vm as any).SourceTextModule
 
@@ -47,7 +47,7 @@ export class ModuleVM {
         return mod.context.$module.export
     }
 }
-export function DocumentToJSModule(document: GraffDocument) {
+export function DocumentToJSModule(document: IRDocument) {
     let opt = new CompilerOptions()
     let comp = new Compiler(opt);
     let { header, body } = document.ToJavaScriptHeaderAndBody(comp);

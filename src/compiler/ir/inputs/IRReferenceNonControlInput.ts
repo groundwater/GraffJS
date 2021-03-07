@@ -1,8 +1,8 @@
 import { Compiler } from '../../Compiler';
 import { CHECK } from '../../util';
-import { NonControlInput } from './NonControlInput';
+import { IRNonControlInput } from './IRNonControlInput';
 
-export class ReferenceNonControlInput extends NonControlInput {
+export class IRReferenceNonControlInput extends IRNonControlInput {
     constructor(
         protected node_index: number,
         protected slot_index: number = -1

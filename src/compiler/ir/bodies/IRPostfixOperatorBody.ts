@@ -1,7 +1,7 @@
 import { Compiler } from '../../Compiler';
-import { NodeBody } from './NodeBody';
+import { IRNodeBody } from './IRNodeBody';
 
-export class PostfixOperatorBody extends NodeBody {
+export class IRPostfixOperatorBody extends IRNodeBody {
     constructor(
         public postfix: string
     ) { super(); }

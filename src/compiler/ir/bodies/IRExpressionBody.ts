@@ -1,8 +1,8 @@
 import assert from 'assert';
 import { Compiler } from '../../Compiler';
-import { NodeBody } from './NodeBody';
+import { IRNodeBody } from './IRNodeBody';
 
-export class ExpressionBody extends NodeBody {
+export class IRExpressionBody extends IRNodeBody {
     constructor(
         public body: string
     ) { super(); }
