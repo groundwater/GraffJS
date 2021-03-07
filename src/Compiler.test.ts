@@ -62,6 +62,9 @@ export class Compiler {
             return `$n${index}`
         }
     }
+    VarIn(index: number) {
+        return `${this.Var(index)}_in`
+    }
     Fun(index: number, _slot_ignored?: number) {
         return `f$${index}`
     }
@@ -199,9 +202,11 @@ export class ReverseNonControlInput extends NonControlInput {
     }
 }
 export class ControlInput extends Input {
-    *WriteDeclare() { }
+    *WriteDeclare(compiler: Compiler, local: number, slot: number) {
+        yield compiler.WrapStatement(`var ${compiler.VarIn(local)}`)
+    }
     *Write(compiler: Compiler, local: number, slot: number) {
-        yield compiler.WrapStatement(`${compiler.Var(local, slot)} = ${compiler.Var(local)}_in`)
+        yield compiler.WrapStatement(`${compiler.Var(local, slot)} = ${compiler.VarIn(local)}`)
     }
 }
 export class Output {
@@ -212,7 +217,7 @@ export class Output {
         yield compiler.WrapStatement(`$fc = ${this.dest_node}`)
     }
     *WriteCopyValue(compiler: Compiler, source_var: string) {
-        yield compiler.WrapStatement(`${compiler.Var(this.dest_node)}_in = ${source_var}`)
+        yield compiler.WrapStatement(`${compiler.VarIn(this.dest_node)} = ${source_var}`)
     }
 }
 export abstract class Node {
@@ -255,7 +260,6 @@ export class ForwardNode extends Node {
         assert(index > -1)
         let name = compiler.Var(index)
         yield compiler.WrapStatement(`var ${name}`)
-        yield compiler.WrapStatement(`var ${name}_in`)
         for (let [slot, nci] of enumerate(this.non_control_inputs)) {
             yield* nci.WriteDeclare(compiler, index, slot)
         }
