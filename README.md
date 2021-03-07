@@ -104,9 +104,8 @@ Anyone who helps contribute will be listed here.
 - [x] Intermediate Compiler (IR to JS; see [src/compiler](src/compiler))
 - [-] Virtual Machines
     - [x] JS Script VM
-    - [-] JS Module VM
-        - [x] `import` support
-        - [ ] 
+    - [ ] JS Module VM
+        - [x] `import` support (partial)
 - [ ] AST (AST to IR)
 - [ ] Parser (Source to AST)
 - [ ] Static Analysis
