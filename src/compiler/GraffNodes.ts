@@ -2,7 +2,7 @@ import { Compiler } from './Compiler';
 import { enumerate } from './util';
 import { Node } from './nodes/Node';
 
-export class Graff {
+export class GraffNodes {
     *Write(compiler: Compiler): IterableIterator<string> {
         yield compiler.WrapStatement(`var $exit`);
         for (let [index, node] of enumerate(this.nodes)) {

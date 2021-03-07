@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "description": "Graff is a plain-text ASCII art programming language interoperable with JavaScript",
   "scripts": {
-    "test": "tap src/test.js src/**/*.test.ts"
+    "test": "tap --node-arg=--experimental-vm-modules src/test.js src/**/*.test.ts",
+    "start": "node -r ts-node/register --experimental-vm-modules"
   },
   "keywords": [],
   "author": "",

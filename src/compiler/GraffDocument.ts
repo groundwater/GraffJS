@@ -1,12 +1,12 @@
 import { Compiler } from './Compiler';
-import { Graff } from "./Graff";
+import { GraffNodes } from "./GraffNodes";
 import { JSHeader } from "./JSHeader";
 
 
-export class Document {
+export class GraffDocument {
     constructor(
         public header: JSHeader,
-        public nodes: Graff
+        public nodes: GraffNodes
     ) { }
     *Write(compiler: Compiler): IterableIterator<string> {
         yield this.header.script + '\n';
@@ -14,5 +14,11 @@ export class Document {
     }
     ToJavaScript(compiler: Compiler) {
         return Array.from(this.Write(compiler)).join('')
+    }
+    ToJavaScriptHeaderAndBody(compiler: Compiler) {
+        let body = Array.from(this.nodes.Write(compiler)).join('')
+        let header = this.header.script
+
+        return { header, body }
     }
 }
