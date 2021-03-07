@@ -4,7 +4,7 @@ Graff is a plain-text ASCII art programming language interoperable with JavaScri
 
 ![Example Graff Program](examples/example.gif)
 
-All programs proceed **East to West**.
+All programs proceed **West to East**.
 
 To follow any graff, trace the arrow of any node exiting the _East_ side to the next step in the program.
 
