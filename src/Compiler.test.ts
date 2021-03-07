@@ -1,4 +1,5 @@
 import assert from 'assert'
+import { realpath } from 'node:fs'
 
 export class CompilerOptions {
     constructor(
@@ -48,9 +49,9 @@ export class Document {
         public header: JSHeader,
         public nodes: Nodes,
     ) { }
-    *scriptify(compiler: Compiler): IterableIterator<string> {
+    *Write(compiler: Compiler): IterableIterator<string> {
         yield this.header.script + '\n'
-        yield* this.nodes.scriptify(compiler)
+        yield* this.nodes.Write(compiler)
         yield `console.log({$exit})`
     }
 }
@@ -60,16 +61,15 @@ export class JSHeader {
     ) { }
 }
 export abstract class NodeBody {
-    abstract scriptify(compiler: Compiler, prefix: string, exits: number[]): Generator<string, number, void>
+    abstract Write(compiler: Compiler, prefix: string): Generator<string>
 }
 export class ExpressionBody extends NodeBody {
     constructor(
         public UNSAFE_body: string
     ) { super() }
-    *scriptify(compiler: Compiler, prefix: string, exists: number[]) {
+    *Write(compiler: Compiler, prefix: string) {
         let o = this.UNSAFE_body.replaceAll(/\$(\d+)/g, `${prefix}_$1`)
         yield compiler.WrapStatement(`${prefix} = (${o})`)
-        return exists[0]
     }
 }
 // export class InfixOperatorBody extends NodeBody {
@@ -96,26 +96,12 @@ export class LiteralBody extends NodeBody {
     constructor(
         public value: any
     ) { super() }
-    *scriptify(compiler: Compiler, prefix: string, exits: number[]) {
-        assert(exits.length === 1)
+    *Write(compiler: Compiler, prefix: string) {
         yield compiler.WrapStatement(`${prefix} = (${this.value})`)
-        return exits[0]
     }
 }
 export class Nodes {
-    GetInputArrowReference(source_index: number, dest_index: number): string {
-        assert(source_index < this.nodes.length)
-        let source = this.nodes[source_index]
-        assert(source)
-        if (dest_index === -1) {
-            return `$exit = ${source.Name()}`
-        }
-        let dest = this.nodes[dest_index]
-        assert(dest_index < this.nodes.length)
-        assert(dest)
-        return dest.InputValue().CopyIndex(source.Name(), dest.Name())
-    }
-    *scriptify(compiler: Compiler): IterableIterator<string> {
+    *Write(compiler: Compiler): IterableIterator<string> {
         yield compiler.WrapStatement(`var $start = module`)
         yield compiler.WrapStatement(`var $exit`)
         for (let node of this.nodes) {
@@ -142,56 +128,121 @@ export class Nodes {
         public start: number = 0,
     ) { }
 }
-export class Value {
+export class ForwardArrow {
     constructor(
-        protected index: number,
-    ) { }
-    FormatIndex(): string {
-        assert(this.index == Math.floor(this.index))
-        return String(this.index)
+        protected tail_node_index: number,
+        protected head_node_index: number,
+        protected head_slot_index: number = 0,
+        protected tail_slot_index: number = -1,
+    ) {
+        assert(head_node_index > -1)
+    }
+    TailNode() {
+        return `$n${this.tail_node_index}`
+    }
+    HeadSlot() {
+        return `${this.HeadNode()}_${this.head_slot_index}`
+    }
+    HeadNode() {
+        return `$n${this.head_node_index}`
+    }
+    TailSlot() {
+        if (this.tail_slot_index > -1) {
+            return `${this.TailNode}_${this.tail_slot_index}`
+        } else {
+            return this.TailNode()
+        }
+    }
+    HeadIndex() {
+        return this.head_node_index
     }
 }
-export class ReferenceValue extends Value {
+export class ReverseArrow {
     constructor(
-        protected index: number,
-        protected reference_node: string,
-    ) { super(index) }
-}
-export class InputValue extends Value {
-    constructor(
-        protected index: number,
-        protected copy: number = -1,
-    ) { super(index) }
-    CopyIndex(source: string, dest: string) {
-        if (this.copy > -1) {
-            return `${dest}_${this.index} = ${source}_${this.copy}`
+        public tail_node_index: number,
+        public head_node_index: number,
+        public tail_slot_index: number = 0,
+        public head_slot_index: number = -1,
+    ) { }
+    TailNode() {
+        return `$n${this.tail_node_index}`
+    }
+    TailSlot() {
+        return `${this.TailNode()}_${this.tail_slot_index}`
+    }
+    HeadNode() {
+        return `$n${this.head_node_index}`
+    }
+    HeadSlot() {
+        if (this.head_slot_index > -1) {
+            return `${this.HeadNode}_${this.tail_slot_index}`
         } else {
-            return `${dest}_${this.index} = ${source}`
+            return this.HeadNode()
         }
     }
 }
-export class ReverseNodeValue extends Value {
+export class Input {
     constructor(
-        protected index: number,
-        protected reverse_node: string,
-    ) {
-        super(index)
+        protected rev_arrow: ReverseArrow,
+    ) { }
+}
+export class ControlInput {
+    constructor(
+        protected fwd_arrow: ForwardArrow,
+    ) { }
+}
+export abstract class NonControlInput {
+    abstract Write(): string
+    Declare() {
+        return `var $n${this.rev_arrow.tail_node_index}_${this.rev_arrow.tail_slot_index}`
+    }
+    constructor(
+        protected rev_arrow: ReverseArrow,
+    ) { }
+    Arrow() {
+        return this.rev_arrow
+    }
+}
+export class ReferenceNonControlInput extends NonControlInput {
+    Write(): string {
+        return `${this.rev_arrow.TailSlot()} = ${this.rev_arrow.HeadSlot()}`
+    }
+}
+export class ReverseNonControlInput extends NonControlInput {
+    Write(): string {
+        return `${this.rev_arrow.TailSlot()} = f${this.rev_arrow.HeadNode()}()`
+    }
+}
+export class InputReference extends Input {
+}
+export class InputReverseNode extends Input {
+}
+export class Output {
+    constructor(
+        protected fwd_arrow: ForwardArrow,
+    ) { }
+    GetArrow(): ForwardArrow {
+        return this.fwd_arrow
+    }
+    WriteSetForwardControl() {
+        return `$fc = ${this.fwd_arrow.HeadIndex()}`
+    }
+    WriteCopyValue(): string {
+        return `${this.fwd_arrow.HeadSlot()} = ${this.fwd_arrow.TailSlot()}`
+    }
+}
+export class ReverseOutput {
+    constructor(
+        protected rev_arrow: ReverseArrow,
+    ) { }
+    GetArrow(): ReverseArrow {
+        return this.rev_arrow
     }
 }
 export abstract class Node {
     constructor(
         protected index: number,
-        protected body: NodeBody,
-        protected values: Value[],
-        protected exits: number[],
-        protected input: number = 0,
     ) { }
-    *Values() {
-        yield* this.values
-    }
-    InputValue(): InputValue {
-        return this.values[this.input] as InputValue
-    }
     Name(): string {
         return `$n${this.index}`
     }
@@ -199,63 +250,100 @@ export abstract class Node {
     abstract ImplementNode(compiler: Compiler, nodes: Nodes): IterableIterator<string>
 }
 export class ForwardNode extends Node {
+    constructor(
+        protected index: number,
+        protected body: NodeBody,
+        protected control_input: ControlInput,
+        protected non_control_inputs: NonControlInput[],
+        protected output?: Output,
+    ) {
+        super(index)
+    }
     *ImplementNode(compiler: Compiler, nodes: Nodes): IterableIterator<string> {
         let name = this.Name()
         yield compiler.WrapLine(`case ${this.index}: {`)
         for (let caseCompiler of compiler.Indented()) {
-            // references
-            // body
-            // next
-            let next = yield* this.body.scriptify(caseCompiler, name, this.exits)
-            assert(next !== this.index)
-            assert(Number.isInteger(next))
-            yield caseCompiler.WrapStatement(`$fc = ${next}`)
-            yield caseCompiler.WrapStatement(nodes.GetInputArrowReference(this.index, next))
+            // References
+            for (let ncis of this.non_control_inputs) {
+                yield caseCompiler.WrapStatement(ncis.Write())
+            }
+
+            // Body
+            yield* this.body.Write(caseCompiler, name)
+
+            // Output
+            if (this.output) {
+                yield caseCompiler.WrapStatement(this.output.WriteSetForwardControl())
+                yield caseCompiler.WrapStatement(this.output.WriteCopyValue())
+            } else {
+                yield caseCompiler.WrapStatement(`$fc = -1`)
+                yield caseCompiler.WrapStatement(`$exit = ${name}`)
+            }
             yield caseCompiler.WrapStatement(`continue steps`)
         }
-        yield compiler.WrapLine(`}`)
+        yield compiler.WrapStatement(`}`)
     }
     * DeclareNode(compiler: Compiler) {
         assert(this.index > -1)
         let name = this.Name()
         yield compiler.WrapStatement(`var ${name}`)
-        for (let value of this.Values()) {
-            yield compiler.WrapStatement(`var ${name}_${value.FormatIndex()}`)
+        for (let nci of this.non_control_inputs) {
+            yield compiler.WrapStatement(nci.Declare())
         }
     }
 }
 export class ReverseNode extends Node {
-    ImplementNode(): IterableIterator<string> {
-        throw new Error('Method not implemented.')
-    }
-    DeclareNode(): IterableIterator<string> {
-        throw new Error('Method not implemented.')
+    constructor(
+        protected index: number,
+        protected body: NodeBody,
+        protected output: ReverseOutput,
+        protected inputs: NonControlInput[] = [],
+    ) { super(index) }
+    *ImplementNode(): IterableIterator<string> { }
+    *DeclareNode(compiler: Compiler): IterableIterator<string> {
+        let name = this.Name()
+        yield compiler.WrapLine(`function f${name}() {`)
+        for (let bodyCompiler of compiler.Indented()) {
+            yield bodyCompiler.WrapStatement(`var ${name}`)
+            for (let ncis of this.inputs) {
+                yield bodyCompiler.WrapStatement(ncis.Write())
+            }
+            yield* this.body.Write(bodyCompiler, name)
+            yield bodyCompiler.WrapStatement(`return ${name}`)
+        }
+        yield compiler.WrapStatement(`}`)
     }
 }
-
 let jsdoc = new Document(
     new JSHeader('"use-strict"'),
     new Nodes([
         new ForwardNode(
             0,
             new LiteralBody(1),
-            [
-                new InputValue(0),
-            ],
-            [1],
+            new ControlInput(new ForwardArrow(-1, 0)),
+            [],
+            new Output(new ForwardArrow(0, 1)),
         ),
         new ForwardNode(
             1,
             new ExpressionBody(
-                `$0 + 1`,
+                `$0 + $1`,
             ),
+            new ControlInput(new ForwardArrow(0, 1)),
             [
-                new InputValue(0),
+                new ReverseNonControlInput(new ReverseArrow(1, 2, 1))
             ],
-            [-1]
+        ),
+        new ReverseNode(
+            2,
+            new ExpressionBody(`$0 + 1`),
+            new ReverseOutput(new ReverseArrow(1, 2)),
+            [
+                new ReferenceNonControlInput(new ReverseArrow(2, 0))
+            ]
         )
     ])
 )
 
 let comp = new Compiler(new CompilerOptions())
-console.log(Array.from(jsdoc.scriptify(comp)).join(''))
+console.log(Array.from(jsdoc.Write(comp)).join(''))
