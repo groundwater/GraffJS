@@ -1,5 +1,18 @@
 import assert from 'assert'
 
+function CHECK(cond: boolean, statement: string) {
+    if (!cond) {
+        console.error(`WARN: ${statement}`)
+    }
+}
+
+function* enumerate<T>(gen: Iterable<T>): Generator<[number, T]> {
+    let i = 0
+    for (let next of gen) {
+        yield [i++, next]
+    }
+}
+
 export class CompilerOptions {
     constructor(
         public indent_spaces = 2,
@@ -130,16 +143,16 @@ export class Nodes {
     *Write(compiler: Compiler): IterableIterator<string> {
         yield compiler.WrapStatement(`var $start = module`)
         yield compiler.WrapStatement(`var $exit`)
-        for (let node of this.nodes) {
-            yield* node.DeclareNode(compiler)
+        for (let [index, node] of enumerate(this.nodes)) {
+            yield* node.DeclareNode(compiler, index)
         }
         yield compiler.WrapStatement(`var $fc = ${this.start}`)
         yield compiler.WrapLine(`steps: while(true) {`)
         for (let whileCompiler of compiler.Indented()) {
             yield whileCompiler.WrapLine(`switch ($fc) {`)
             for (let switchCompiler of whileCompiler.Indented()) {
-                for (let node of this.nodes) {
-                    yield* node.ImplementNode(switchCompiler, this)
+                for (let [index, node] of enumerate(this.nodes)) {
+                    yield* node.WriteNode(switchCompiler, index)
                 }
                 yield switchCompiler.WrapLine(`default: {`)
                 yield switchCompiler.IndentWrapStatement(`break steps`)
@@ -191,56 +204,62 @@ export class ReverseArrow {
     }
 }
 export abstract class Input {
-    abstract WriteDeclare(compiler: Compiler): Generator<string>
-    abstract Write(compiler: Compiler): Generator<string>
-    abstract Slot(): number
+    abstract WriteDeclare(compiler: Compiler, local: number, slot: number): Generator<string>
+    abstract Write(compiler: Compiler, local: number, slot: number): Generator<string>
 }
 export abstract class NonControlInput extends Input {
-    *WriteDeclare(compiler: Compiler): Generator<string> {
-        yield compiler.WrapStatement(`var $n${this.rev_arrow.tail_node_index}_${this.rev_arrow.tail_slot_index}`)
+    *WriteDeclare(compiler: Compiler, local: number, slot: number): Generator<string> {
+        yield compiler.WrapStatement(`var ${compiler.Var(local, slot)}`)
     }
-    Arrow() {
-        return this.rev_arrow
-    }
-    Slot() {
-        return this.rev_arrow.tail_slot_index
-    }
-    constructor(
-        protected rev_arrow: ReverseArrow,
-    ) { super() }
 }
 export class ReferenceNonControlInput extends NonControlInput {
-    *Write(compiler: Compiler) {
-        yield compiler.WrapStatement(`${compiler.Var(...this.rev_arrow.Source())} = ${compiler.Var(...this.rev_arrow.Dest())}`)
+    constructor(
+        protected node_index: number,
+        protected slot_index: number = -1,
+    ) { super() }
+    *Write(compiler: Compiler, local: number, slot: number) {
+        CHECK(local !== this.node_index, 'No Self References')
+        if (this.slot_index > -1) {
+            yield compiler.WrapStatement(`${compiler.Var(local, slot)} = ${compiler.Var(this.node_index, this.slot_index)}`)
+        } else {
+            yield compiler.WrapStatement(`${compiler.Var(local, slot)} = ${compiler.Var(this.node_index)}`)
+        }
     }
 }
 export class ReverseNonControlInput extends NonControlInput {
-    *Write(compiler: Compiler) {
-        yield compiler.WrapStatement(`${compiler.Var(...this.rev_arrow.Source())} = ${compiler.Fun(...this.rev_arrow.Dest())}()`)
+    constructor(
+        protected node_index: number,
+    ) { super() }
+    *Write(compiler: Compiler, local: number, slot: number) {
+        yield compiler.WrapStatement(`${compiler.Var(local, slot)} = ${compiler.Fun(this.node_index)}()`)
     }
 }
 export class ControlInput extends Input {
     constructor(
-        protected fwd_arrow: ForwardArrow,
+        protected slot: number = 0,
     ) { super() }
     Slot(): number {
-        return this.fwd_arrow.HeadSlot()
+        return this.slot
     }
     *WriteDeclare() { }
-    *Write(compiler: Compiler) { }
+    *Write(compiler: Compiler, local: number, slot: number) {
+        yield compiler.WrapStatement(`${compiler.Var(local, slot)} = ${compiler.Var(local)}_in`)
+    }
 }
 export class Output {
     constructor(
-        protected fwd_arrow: ForwardArrow,
+        // protected fwd_arrow: ForwardArrow,
+        protected dest_node: number,
+        // protected dest_slot: number = fwd_arrow.Dest()[1],
     ) { }
-    GetArrow(): ForwardArrow {
-        return this.fwd_arrow
-    }
+    // GetArrow(): ForwardArrow {
+    //     return this.fwd_arrow
+    // }
     *WriteSetForwardControl(compiler: Compiler) {
-        yield compiler.WrapStatement(`$fc = ${this.fwd_arrow.HeadNode()}`)
+        yield compiler.WrapStatement(`$fc = ${this.dest_node}`)
     }
-    *WriteCopyValue(compiler: Compiler) {
-        yield compiler.WrapStatement(`${compiler.Var(...this.fwd_arrow.Dest())} = ${compiler.Var(...this.fwd_arrow.Source())}`)
+    *WriteCopyValue(compiler: Compiler, source_var: string) {
+        yield compiler.WrapStatement(`${compiler.Var(this.dest_node)}_in = ${source_var}`)
     }
 }
 export class ReverseOutput {
@@ -252,45 +271,24 @@ export class ReverseOutput {
     }
 }
 export abstract class Node {
-    constructor(
-        protected index: number,
-    ) { }
-    abstract DeclareNode(compiler: Compiler): IterableIterator<string>
-    abstract ImplementNode(compiler: Compiler, nodes: Nodes): IterableIterator<string>
+    abstract DeclareNode(compiler: Compiler, index: number): IterableIterator<string>
+    abstract WriteNode(compiler: Compiler, index: number): IterableIterator<string>
 }
 export class ForwardNode extends Node {
     constructor(
-        protected index: number,
         protected body: NodeBody,
         protected non_control_inputs: Input[],
         protected output?: Output,
     ) {
-        super(index)
-
-        // sanity check
-        let slots: number[] = []
-        for (let ncis of non_control_inputs) {
-            let tail = ncis.Slot()
-            if (slots.indexOf(tail) > -1) {
-                console.error(this.non_control_inputs)
-                throw new Error(`Input Slots Must Be Unique`)
-            }
-            slots.push(tail)
-        }
-        slots.sort()
-        let j = 0
-        for (let i of slots) {
-            assert(i === j++, `Missing Input Slot ${j - 1}`)
-
-        }
+        super()
     }
-    *ImplementNode(compiler: Compiler, nodes: Nodes): IterableIterator<string> {
-        let name = compiler.Var(this.index)
-        yield compiler.WrapLine(`case ${this.index}: {`)
+    *WriteNode(compiler: Compiler, index: number): IterableIterator<string> {
+        let name = compiler.Var(index)
+        yield compiler.WrapLine(`case ${index}: {`)
         for (let caseCompiler of compiler.Indented()) {
             // References
-            for (let ncis of this.non_control_inputs) {
-                yield* ncis.Write(caseCompiler)
+            for (let [slot, ncis] of enumerate(this.non_control_inputs)) {
+                yield* ncis.Write(caseCompiler, index, slot)
             }
 
             // Body
@@ -299,7 +297,7 @@ export class ForwardNode extends Node {
             // Output
             if (this.output) {
                 yield* this.output.WriteSetForwardControl(caseCompiler)
-                yield* this.output.WriteCopyValue(caseCompiler)
+                yield* this.output.WriteCopyValue(caseCompiler, name)
             } else {
                 yield caseCompiler.WrapStatement(`$fc = -1`)
                 yield caseCompiler.WrapStatement(`$exit = ${name}`)
@@ -308,30 +306,30 @@ export class ForwardNode extends Node {
         }
         yield compiler.WrapStatement(`}`)
     }
-    * DeclareNode(compiler: Compiler) {
-        assert(this.index > -1)
-        let name = compiler.Var(this.index)
+    * DeclareNode(compiler: Compiler, index: number) {
+        assert(index > -1)
+        let name = compiler.Var(index)
         yield compiler.WrapStatement(`var ${name}`)
-        for (let nci of this.non_control_inputs) {
-            yield* nci.WriteDeclare(compiler)
+        yield compiler.WrapStatement(`var ${name}_in`)
+        for (let [slot, nci] of enumerate(this.non_control_inputs)) {
+            yield* nci.WriteDeclare(compiler, index, slot)
         }
     }
 }
 export class ReverseNode extends Node {
     constructor(
-        protected index: number,
         protected body: NodeBody,
-        protected output: ReverseOutput,
         protected inputs: Input[] = [],
-    ) { super(index) }
-    *ImplementNode(): IterableIterator<string> { }
-    *DeclareNode(compiler: Compiler): IterableIterator<string> {
-        let name = compiler.Var(this.index)
-        yield compiler.WrapLine(`function ${compiler.Fun(this.index)}() {`)
+    ) { super() }
+    *WriteNode(): IterableIterator<string> { }
+    *DeclareNode(compiler: Compiler, index: number): IterableIterator<string> {
+        let name = compiler.Var(index)
+        yield compiler.WrapLine(`function ${compiler.Fun(index)}() {`)
         for (let bodyCompiler of compiler.Indented()) {
             yield bodyCompiler.WrapStatement(`var ${name}`)
-            for (let ncis of this.inputs) {
-                yield* ncis.Write(bodyCompiler)
+            for (let [slot, ncis] of enumerate(this.inputs)) {
+                yield* ncis.WriteDeclare(bodyCompiler, index, slot)
+                yield* ncis.Write(bodyCompiler, index, slot)
             }
             yield* this.body.Write(bodyCompiler, name)
             yield bodyCompiler.WrapStatement(`return ${name}`)
@@ -343,46 +341,40 @@ let jsdoc = new Document(
     new JSHeader('"use-strict"'),
     new Nodes([
         new ForwardNode(
-            0,
             new LiteralBody(1),
             [
-                new ControlInput(new ForwardArrow(-1, 0))
+                new ControlInput()
             ],
-            new Output(new ForwardArrow(0, 1)),
+            new Output(1),
         ),
         new ForwardNode(
-            1,
             new ExpressionBody(
                 `$0 + $1`,
             ),
             [
-                new ControlInput(new ForwardArrow(0, 1)),
-                new ReverseNonControlInput(new ReverseArrow(1, 2, 1))
+                new ControlInput(),
+                new ReverseNonControlInput(2)
             ],
-            new Output(new ForwardArrow(1, 3))
+            new Output(3)
         ),
         new ReverseNode(
-            2,
             new ExpressionBody(`$0 + 1`),
-            new ReverseOutput(new ReverseArrow(1, 2)),
             [
-                new ReferenceNonControlInput(new ReverseArrow(2, 0))
+                new ReferenceNonControlInput(0)
             ]
         ),
         new ForwardNode(
-            3,
             new InfixOperatorBody('*'),
             [
-                new ControlInput(new ForwardArrow(1, 3)),
-                new ReferenceNonControlInput(new ReverseArrow(3, 0, 1))
+                new ReferenceNonControlInput(0),
+                new ControlInput(1),
             ],
-            new Output(new ForwardArrow(3, 4))
+            new Output(4)
         ),
         new ForwardNode(
-            4,
             new PrefixyOperatorBody('-'),
             [
-                new ControlInput(new ForwardArrow(3, 4))
+                new ControlInput()
             ]
         )
     ])

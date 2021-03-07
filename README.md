@@ -2,27 +2,11 @@
 
 Graff is a plain-text ASCII art programming language interoperable with JavaScript.
 
-```
-      ┌──────────┐          ┌────────┐   ┌────────┐    ┌────────────┐    ┌─────────────┐
-      │          │          │        │   │        │    │            │    │             │
-─────►│ []       ├─────────►│ .push  0──►│ .push  0───►│ .join(" ") ├───►│ console.log │
-      │          │          │        │   │        │    │            │    │             │
-      └──────────┘          └──┬─────┘   └───┬────┘    └────────────┘    └─────────────┘
-                               │             │
-                               │             │
-      ┌──────────┐             │             │
-      │          │             │             │
-      │ "Hello"  │             │             │
-      │          │◄────────────┘             │
-      └──────────┘                           │
-                                             │
-                                             │
-      ┌──────────┐                           │
-      │          │                           │
-      │ "World"  │◄──────────────────────────┘
-      │          │
-      └──────────┘
-```
+![Example Graff Program](examples/example.gif)
+
+All programs proceed **East to West**.
+
+To follow any graff, trace the arrow of any node exiting the _East_ side to the next step in the program.
 
 # Overview
 
@@ -34,6 +18,8 @@ So far, there is only an incomplete specification.
 1. If you want to ask a question, also feel free to in an issue.
 1. If you want to tackle writing a parser, please do! 
     I will likely give you write access.
+
+I use [asciiflow.com](https://asciiflow.com/) for all my diagrams.
 
 # Credits
 
@@ -113,14 +99,145 @@ Anyone who helps contribute will be listed here.
                             └────────────────────────────────────────────────────────────────────┘
 ```
 
-# Feature Milestones
+# Milestones
 
 1. Command line interpreter.
 1. Arrow analyzer. Check for errors in control flow rules statically.
 1. Import/Export with JS and TypeScript.
 1. Can compile to a webpack bundle alongside other JavaScript.
 
+# Concepts
+
+Graffs are intended to be easy to reason about.
+Starting at any node, it should be easy to trace the program execution forward as well as backwards.
+
+Graff mixes imperative programming nodes with functional programming nodes.
+Separating side-effect and (hopefully) non-side-effect nodes helps reason about a graff.
+You can tell which type of node based on the arrows.
+
+1. Arrows pointing out from the East are imperative. We call thse _Forward Nodes_.
+    
+    ```
+       ┌──────┐
+    ──►│ foo  ├──►
+       └──────┘
+    ```
+    Think _do this, then that_, like imperative control flow.
+
+1. Arrows pointing in from the East are functional. We call these _Reverse Nodes_.
+    ```
+       ┌──────┐
+    ◄──┤ foo  │◄──
+       └──────┘
+    ```
+    Think _that needs this_, like function arguments.
+
+Everything else is syntactic sugar to minimize syntax for common operations and use cases.
+
+# By Example
+
+_Translations are approximate. The exact compiler specification does not exist_.
+
+## Hello
+
+```
+      ┌───────────────────────┐
+─────►│  console.log("Hello") ├
+      └───────────────────────┘
+```
+
+Is equivalent to `console.log("Hello")`, which has the same result as the following:
+
+```
+      ┌──────────┐        ┌──────────────┐
+─────►│  "Hello" ├───────►│ console.log  │
+      └──────────┘        └──────────────┘
+```
+
+which is equivalent to:
+
+```js
+var $0 = "Hello"
+
+console.log($0)
+```
+
+## Adding
+
+```
+   ┌───┐
+──►│ 1 ├─┐  ┌───┐
+   └───┘ └─►│ + ├────►
+            └─┬─┘
+   ┌───┐      │
+   │ 2 │◄─────┘
+   └───┘
+```
+
+Is equivalent to:
+
+```js
+var $0 = 1
+var $1 = 2
+var $3 = $0 + $1
+```
+
+## Branching
+
+```
+      ┌────────┐       ┌───────────────────────────────────────┐
+      │        0──────►│console.log($0, "Is Greater than Zero")│
+─────►│   >0   │       └───────────────────────────────────────┘
+      │        0───┐
+      └────────┘   │   ┌───────────────────────────────────────────┐
+                   └──►│console.log($0, "Is not greater than zero")│
+                       └───────────────────────────────────────────┘
+```
+
+For an arbitrary input `$0`, is approximately equivalent to:
+
+```js
+var $0 = /* something */
+
+if ($0 > 0) {
+    console.log($0, "Is Greater than Zero")
+} else {
+    console.log($0, "Is not greater than zero")
+}
+```
+
+Although in practice, it may be implemented differently. See [Implementation](#Implementation) for details.
+
+## Multiple Arrows
+
+```
+   ┌────┐  ┌───────┐
+   │    │  │       │    ┌───────────┐
+──►│ [] ├─►│ .push 0───►│console.log│
+   │    │  │       │    └───────────┘
+   └────┘  └──┬────┘
+              │
+  ┌───────┐   │
+  │foo.get│◄──┘
+  └───────┘
+```
+
+Is approximately:
+
+```js
+var $0 = []
+
+$0.push(foo.get())
+
+console.log($0)
+```
+
+Hopefully you're starting to get the idea.
+There are precice rules for what arguments go where based on the arrow positions and directions.
+
 # Specification
+
+_WARNING: Here Be Dragons_
 
 ## Terminology
 
@@ -412,8 +529,9 @@ The program proceeds in discrete steps, completing the previous step before the 
 ### Reverse Nodes
 
 Reverse control mixes functional programming into an imperative workflow.
-Each node in a reverse graph adds to a program stack.
-A terminal reverse node begins unwinding the stack, passing return values upward.
+Each node in a reverse graff is part of a single functional mini-program.
+Instead of passing control, reverse nodes yield control, awaiting values from the next node in the computation.
+Eventually all computations resolve, and the entire chain of reverse nodes unwinds to return its final value to the Forward Node which originally spawned it.
 
 1. Reverse nodes have In Arrows from the East, and Out Arrows from the West.
 
@@ -787,6 +905,101 @@ Execution ends when a node fails to pass control after its completion.
     │        └──────┘       │
     └───────────────────────┘
     ```
+
+# Implementation
+
+Ideally we want nodes to execute in the same scope rather than independent closures. 
+It would be faster, and more flexible.
+However, it likely makes the resulting JavaScript _nasty_.
+That's okay.
+
+For example, 
+
+```
+        ┌─────────────────────┐
+        │ ┌───────────────────┼──────────────────────┐
+        │ │      ┌─────────┐  │                      │
+        │ │      │         │  │                      │
+        │ └─────►│ $1 + 1  ├──┘                      │
+        │        │         │          ┌────────────┐ │
+        │        └─┬───────┘      ┌──►┤console.log 0─┘
+        │      ┌───┘              │   └────────────┘
+        └┐     ▼      ┌─────────┐ │
+   ┌───┐ │   ┌───┐    │         0─┘
+──►│ 0 ├─┴──►│$0 ├───►│ $0 < 10 │       ┌──────┐
+   └───┘     └───┘    │         ├──────►│"Done"│
+                      └─────────┘       └──────┘
+```
+
+```js
+var $start
+var $n0_0
+var $n0
+var $n1_0
+var $n1
+var $n2_0
+var $n2
+var $n3_0
+var $n3
+var $n4_0
+var $n4_1
+var $n4
+var $n5_0
+var $n5
+
+var $fc = 0
+var $rc = -1
+
+$n0_0 = $start
+
+step: while(true) {
+    switch($fc) {
+        case 0: {
+            $n0 = (0)
+            $fc = 1
+            $n1_0 = $n0
+            continue step
+        }
+        case 1: {
+            $n1 = ($n1) // evalute body
+            $fc = 2
+            $n2_0 = $n1
+            continue step
+        }
+        case 2: {
+            $n2 = ($n2_0 < 10)
+            if ($n2 === false) {
+                $fc = 5
+                $n_5_0 = $n2
+            } else {
+                $fc = 3
+                $n3_0 = $n2_0
+            }
+            continue step
+        }
+        case 3: {
+            $n3 = (console.log($n3_0))
+            $fc = 4
+            $n4_0 = $n3_0
+            continue step
+        }
+        case 4: {
+            $n4_1 = $n1
+            $n4 = ($n4_0 + $n4_1)
+            $fc = 1
+            $n1_0 = $n4
+            continue step
+        }
+        case 5: {
+            $n5 = ("Done")
+            $fc = -1
+        }
+        default: {
+            break step
+        }
+    }
+}
+```
 
 # Credits
 
