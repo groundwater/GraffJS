@@ -1,8 +1,47 @@
 import assert from 'assert'
 
+export class CompilerOptions {
+    constructor(
+        public indent_spaces = 2,
+        public semicolons: boolean = true,
+        public newlines: boolean = true,
+    ) { }
+}
 export class Compiler {
     constructor(
+        protected options: CompilerOptions,
+        protected depth = 0,
     ) { }
+    protected End() {
+        return this.options.semicolons ? ';' : ''
+    }
+    protected EndLine() {
+        return this.options.newlines ? '\n' : ''
+    }
+    Indent() {
+        if (this.depth > 0) {
+            let spaces = ' '.repeat(this.options.indent_spaces)
+            let indent = spaces.repeat(this.depth)
+            return indent
+        } else {
+            return ''
+        }
+    }
+    WrapStatement(line: string): string {
+        return this.Indent() + line + this.End() + this.EndLine()
+    }
+    WrapLine(text: string) {
+        return this.Indent() + text + this.EndLine()
+    }
+    *Indented() {
+        yield new Compiler(this.options, this.depth + 1)
+    }
+    IndentWrapStatement(statemetn: string): string {
+        for (let compiler of this.Indented()) {
+            return compiler.WrapStatement(statemetn)
+        }
+        throw new Error('Unexpected')
+    }
 }
 export class Document {
     constructor(
@@ -21,15 +60,15 @@ export class JSHeader {
     ) { }
 }
 export abstract class NodeBody {
-    abstract scriptify(prefix: string, exits: number[]): Generator<string, number, void>
+    abstract scriptify(compiler: Compiler, prefix: string, exits: number[]): Generator<string, number, void>
 }
 export class ExpressionBody extends NodeBody {
     constructor(
         public UNSAFE_body: string
     ) { super() }
-    *scriptify(prefix: string, exists: number[]) {
+    *scriptify(compiler: Compiler, prefix: string, exists: number[]) {
         let o = this.UNSAFE_body.replaceAll(/\$(\d+)/g, `${prefix}_$1`)
-        yield `${prefix} = (${o})`
+        yield compiler.WrapStatement(`${prefix} = (${o})`)
         return exists[0]
     }
 }
@@ -57,9 +96,9 @@ export class LiteralBody extends NodeBody {
     constructor(
         public value: any
     ) { super() }
-    *scriptify(prefix: string, exits: number[]) {
+    *scriptify(compiler: Compiler, prefix: string, exits: number[]) {
         assert(exits.length === 1)
-        yield `${prefix} = (${this.value});`
+        yield compiler.WrapStatement(`${prefix} = (${this.value})`)
         return exits[0]
     }
 }
@@ -77,22 +116,26 @@ export class Nodes {
         return dest.InputValue().CopyIndex(source.Name(), dest.Name())
     }
     *scriptify(compiler: Compiler): IterableIterator<string> {
-        yield `var $start = module;`
-        yield `var $exit;`
+        yield compiler.WrapStatement(`var $start = module`)
+        yield compiler.WrapStatement(`var $exit`)
         for (let node of this.nodes) {
-            yield* node.DeclareNode()
+            yield* node.DeclareNode(compiler)
         }
-        yield `var $fc = ${this.start};`
-        yield `steps: while(true) {`
-        yield `switch ($fc) {`
-        for (let node of this.nodes) {
-            yield* node.ImplementNode(this)
+        yield compiler.WrapStatement(`var $fc = ${this.start}`)
+        yield compiler.WrapLine(`steps: while(true) {`)
+        for (let whileCompiler of compiler.Indented()) {
+            yield whileCompiler.WrapLine(`switch ($fc) {`)
+            for (let switchCompiler of whileCompiler.Indented()) {
+                for (let node of this.nodes) {
+                    yield* node.ImplementNode(switchCompiler, this)
+                }
+                yield switchCompiler.WrapLine(`default: {`)
+                yield switchCompiler.IndentWrapStatement(`break steps`)
+                yield switchCompiler.WrapLine(`}`)
+            }
+            yield whileCompiler.WrapLine(`}`)
         }
-        yield `default: {
-break steps;
-}//default
-}//switch
-}//while`
+        yield compiler.WrapLine(`}`)
     }
     constructor(
         public nodes: Node[],
@@ -152,30 +195,32 @@ export abstract class Node {
     Name(): string {
         return `$n${this.index}`
     }
-    abstract DeclareNode(): IterableIterator<string>
-    abstract ImplementNode(nodes: Nodes): IterableIterator<string>
+    abstract DeclareNode(compiler: Compiler): IterableIterator<string>
+    abstract ImplementNode(compiler: Compiler, nodes: Nodes): IterableIterator<string>
 }
 export class ForwardNode extends Node {
-    *ImplementNode(nodes: Nodes): IterableIterator<string> {
+    *ImplementNode(compiler: Compiler, nodes: Nodes): IterableIterator<string> {
         let name = this.Name()
-        yield `case ${this.index}: {`
-        // references
-        // body
-        // next
-        let next = yield* this.body.scriptify(name, this.exits)
-        assert(next !== this.index)
-        assert(Number.isInteger(next))
-        yield `$fc = ${next};`
-        yield nodes.GetInputArrowReference(this.index, next)
-        yield `continue steps;`
-        yield `}`
+        yield compiler.WrapLine(`case ${this.index}: {`)
+        for (let caseCompiler of compiler.Indented()) {
+            // references
+            // body
+            // next
+            let next = yield* this.body.scriptify(caseCompiler, name, this.exits)
+            assert(next !== this.index)
+            assert(Number.isInteger(next))
+            yield caseCompiler.WrapStatement(`$fc = ${next}`)
+            yield caseCompiler.WrapStatement(nodes.GetInputArrowReference(this.index, next))
+            yield caseCompiler.WrapStatement(`continue steps`)
+        }
+        yield compiler.WrapLine(`}`)
     }
-    * DeclareNode() {
+    * DeclareNode(compiler: Compiler) {
         assert(this.index > -1)
         let name = this.Name()
-        yield `var ${name};`
+        yield compiler.WrapStatement(`var ${name}`)
         for (let value of this.Values()) {
-            yield `var ${name}_${value.FormatIndex()};`
+            yield compiler.WrapStatement(`var ${name}_${value.FormatIndex()}`)
         }
     }
 }
@@ -212,5 +257,5 @@ let jsdoc = new Document(
     ])
 )
 
-let comp = new Compiler()
-console.log(Array.from(jsdoc.scriptify(comp)).join('\n'))
+let comp = new Compiler(new CompilerOptions())
+console.log(Array.from(jsdoc.scriptify(comp)).join(''))
